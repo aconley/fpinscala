@@ -106,4 +106,43 @@ object List { // `List` companion object. Contains functions for creating and wo
   def add1(l: List[Int]): List[Int] = map(l)(_ + 1)
   def doubleToString(l: List[Double]): List[String] =
     map(l)(_.toString)
+
+  // Again, ignore stack overflow
+  def filter[A](l: List[A])(f: A => Boolean): List[A] =
+    foldRight(l, Nil: List[A])((x, xs) => if (f(x)) Cons(x, xs) else xs)
+
+  def flatMap[A, B](l: List[A])(f: A => List[B]): List[B] =
+    concat(map(l)(f))
+
+  // This is rather silly...
+  def filterUsingFlatMap[A](l: List[A])(f: A => Boolean): List[A] =
+    flatMap(l)(x => if (f(x)) List(a) else Nil)
+
+  def zipWith[A, B, C](a: List[A], b: List[B])(f: (A, B) => C): List[C] = (a,b) match {
+    case (Nil, _) => Nil
+    case(_, Nil) => Nil
+    case(Cons(x, xs), Cons(y, ys)) => Cons(f(x, xs), zipWith(xs, ys)(f))
+  }
+
+  def addPairs(a: List[Int], b: List[Int]): List[Int] =
+    zipWith(a, b)(_ + _)
+
+  // The subsequence checker is hella inefficient
+  def startsWith[A](pre: List[A], l: List[A]): Boolean = (pre, l) match {
+    case (Nil, _) => true  // pre is exhausted successfully
+    case (Cons(p, ps), Cons(x, xs)) => if (p != x) false else startsWith(ps, xs)
+    case _ => false
+  }
+
+  // This works by trying the sequence starting at every position;
+  // it might be more efficient to figure out the length and decrement
+  // a counter, but that depends if the subsequence happens to be near
+  // the front.
+  @annotation.tailrec
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = sup match {
+    case Nil => false
+    case Cons(x, xs) => if (startsWith(sub, sup)) true else hasSubsequence(xs, sub)
+  }
+
+  }
 }
