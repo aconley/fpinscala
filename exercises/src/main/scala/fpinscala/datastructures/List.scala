@@ -116,12 +116,12 @@ object List { // `List` companion object. Contains functions for creating and wo
 
   // This is rather silly...
   def filterUsingFlatMap[A](l: List[A])(f: A => Boolean): List[A] =
-    flatMap(l)(x => if (f(x)) List(a) else Nil)
+    flatMap(l)(x => if (f(x)) List(x) else Nil)
 
   def zipWith[A, B, C](a: List[A], b: List[B])(f: (A, B) => C): List[C] = (a,b) match {
     case (Nil, _) => Nil
     case(_, Nil) => Nil
-    case(Cons(x, xs), Cons(y, ys)) => Cons(f(x, xs), zipWith(xs, ys)(f))
+    case(Cons(x, xs), Cons(y, ys)) => Cons(f(x, y), zipWith(xs, ys)(f))
   }
 
   def addPairs(a: List[Int], b: List[Int]): List[Int] =
@@ -142,7 +142,5 @@ object List { // `List` companion object. Contains functions for creating and wo
   def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = sup match {
     case Nil => false
     case Cons(x, xs) => if (startsWith(sub, sup)) true else hasSubsequence(xs, sub)
-  }
-
   }
 }
