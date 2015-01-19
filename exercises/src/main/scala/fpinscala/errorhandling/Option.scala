@@ -77,6 +77,6 @@ object Option {
     }
 
   // Just substitute Option[A] for A in the signature of traverse
-  def seqTranverse[A](a: List[Option[A]]): Option[List[A]] =
+  def seqTraverse[A](a: List[Option[A]]): Option[List[A]] =
     traverse(a)(x => x)
 }
