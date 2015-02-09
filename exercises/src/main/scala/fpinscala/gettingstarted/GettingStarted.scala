@@ -156,6 +156,7 @@ object PolymorphicFunctions {
   // Exercise 2: Implement a polymorphic function to check whether
   // an `Array[A]` is sorted
   def isSorted[A](as: Array[A], gt: (A,A) => Boolean): Boolean = {
+<<<<<<< HEAD
     val len = as.length
     @annotation.tailrec
     def isSortedInner(idx: Int, prev: A): Boolean = {
@@ -166,6 +167,15 @@ object PolymorphicFunctions {
 
     if (len == 0) true // well, sorta defined
     else isSortedInner(1, as(0))
+=======
+    @annotation.tailrec
+    def inner(i: Int, prev: A, lenas: Int): Boolean = {
+      if (i == lenas) true // Reached the end
+      else if (gt(as(i), prev)) inner(i + 1, as(i), lenas)
+      else false
+    }
+    inner(1, as(0), as.length)
+>>>>>>> db36077346127e83724933871b06d7d554b57ffa
   }
 
   // Polymorphic functions are often so constrained by their type
@@ -179,7 +189,7 @@ object PolymorphicFunctions {
   // Note that `=>` associates to the right, so we could
   // write the return type as `A => B => C`
   def curry[A,B,C](f: (A, B) => C): A => (B => C) =
-    (a: A) => partial1(a, f)
+    a => (b => f(a, b))
 
   // NB: The `Function2` trait has a `curried` method already
 

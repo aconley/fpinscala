@@ -47,19 +47,100 @@ object List { // `List` companion object. Contains functions for creating and wo
     foldRight(ns, 1.0)(_ * _) // `_ * _` is more concise notation for `(x,y) => x * y`; see sidebar
 
 
-  def tail[A](l: List[A]): List[A] = sys.error("todo")
+  def tail[A](l: List[A]): List[A] = l match {
+    case Nil => sys.error("Tail of empty List")
+    case Cons(_, t) => t
+  }
 
-  def setHead[A](l: List[A], h: A): List[A] = sys.error("todo")
+  // Chose to return a new list if passed an empty one
+  // rather than throw an error
+  def setHead[A](l: List[A], h: A): List[A] = l match {
+    case Nil => Cons(h, Nil)
+    case Cons(_, t) => Cons(h, t)
+  }
 
-  def drop[A](l: List[A], n: Int): List[A] = sys.error("todo")
+  def drop[A](l: List[A], n: Int): List[A] =
+    if (n <= 0) l
+    else l match {
+      case Nil => Nil // Don't throw exception
+      case Cons(_, t) => drop(t, n-1)
+    }
 
-  def dropWhile[A](l: List[A], f: A => Boolean): List[A] = sys.error("todo")
+  def dropWhile[A](l: List[A], f: A => Boolean): List[A] = l match {
+    case Nil => Nil
+    case Cons(x, xs) => if (f(x)) dropWhile(xs, f) else l
+  }
 
-  def init[A](l: List[A]): List[A] = sys.error("todo")
+  def init[A](l: List[A]): List[A] = l match {
+    case Nil => sys.error("init of empty list")
+    case Cons(_, Nil) => Nil
+    case Cons(x, xs) => Cons(x, init(xs))
+  }
 
-  def length[A](l: List[A]): Int = sys.error("todo")
+  def length[A](l: List[A]): Int = foldRight(l, 0)((_, len) => len + 1)
 
-  def foldLeft[A,B](l: List[A], z: B)(f: (B, A) => B): B = sys.error("todo")
+  def foldLeft[A,B](l: List[A], z: B)(f: (B, A) => B): B = l match {
+    case Nil => z
+    case Cons(x, xs) => foldLeft(xs, f(z, x))(f)
+  }
 
-  def map[A,B](l: List[A])(f: A => B): List[B] = sys.error("todo")
+  def sumLeft(l: List[Int]): Int = foldLeft(l, 0)(_ + _)
+  def productLeft(l: List[Double]): Double = foldLeft(l, 1.0)(_ * _)
+  def lengthLeft[A](l: List[A]): Int = foldLeft(l, 0)((len, _) => len + 1)
+  def reverse[A](l: List[A]): List[A] =
+    foldLeft(l, Nil: List[A])((z, x) => Cons(x, z))
+
+  // Recall that fold right is like replacing Nil by z and cons by f
+  //  so we can replace Nil by r and cons by cons to get an append.
+  def appendRight[A](l: List[A], r: List[A]): List[A] =
+    foldRight(l, r)(Cons(_, _))
+
+  // This works by similar logic
+  def concat[A](l: List[List[A]]): List[A] =
+    foldRight(l, Nil: List[A])(append)
+
+  // Ignore the problems of stack overflow
+  def map[A,B](l: List[A])(f: A => B): List[B] =
+    foldRight(l, Nil: List[B])((x, xs) => Cons(f(x), xs))
+
+  def add1(l: List[Int]): List[Int] = map(l)(_ + 1)
+  def doubleToString(l: List[Double]): List[String] =
+    map(l)(_.toString)
+
+  // Again, ignore stack overflow
+  def filter[A](l: List[A])(f: A => Boolean): List[A] =
+    foldRight(l, Nil: List[A])((x, xs) => if (f(x)) Cons(x, xs) else xs)
+
+  def flatMap[A, B](l: List[A])(f: A => List[B]): List[B] =
+    concat(map(l)(f))
+
+  // This is rather silly...
+  def filterUsingFlatMap[A](l: List[A])(f: A => Boolean): List[A] =
+    flatMap(l)(x => if (f(x)) List(x) else Nil)
+
+  def zipWith[A, B, C](a: List[A], b: List[B])(f: (A, B) => C): List[C] = (a,b) match {
+    case (Nil, _) => Nil
+    case(_, Nil) => Nil
+    case(Cons(x, xs), Cons(y, ys)) => Cons(f(x, y), zipWith(xs, ys)(f))
+  }
+
+  def addPairs(a: List[Int], b: List[Int]): List[Int] =
+    zipWith(a, b)(_ + _)
+
+  // The subsequence checker is hella inefficient
+  def startsWith[A](pre: List[A], l: List[A]): Boolean = (pre, l) match {
+    case (Nil, _) => true  // pre is exhausted successfully
+    case (Cons(p, ps), Cons(x, xs)) => if (p != x) false else startsWith(ps, xs)
+    case _ => false
+  }
+
+  // This works by trying the sequence starting at every position;
+  // it might be more efficient to figure out the length and decrement
+  // a counter, but that depends if the subsequence happens to be near
+  // the front.
+  @annotation.tailrec
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = sup match {
+    case Nil => false
+    case Cons(x, xs) => if (startsWith(sub, sup)) true else hasSubsequence(xs, sub)
+  }
 }
