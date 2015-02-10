@@ -35,21 +35,38 @@ object MyModule {
   }
 
   // Exercise 1: Write a function to compute the nth fibonacci number
-  // This uses an accumulator
+  //  A few solutions presented
+
+  // Probably the one they had in mind
   def fib(n: Int): Int = {
-    require(n >= 0, "n must be positive")
     @annotation.tailrec
-    def accum(n: Int, prev: Int, curr: Int): Int = n match
-    {
-      case 0 => prev
-      case _ => accum(n-1, curr, prev + curr)
-    }
-    accum(n, 0, 1)
+    def fibInner(idx: Int, prev: Int, curr: Int): Int = 
+      if (idx <= 0) prev else fibInner(idx - 1, curr, prev + curr)
+    fibInner(n, 0 , 1)
   }
+
+  // Stream solution, requires 2.11
+  //def fib2(n: Int): Int = {
+  //  require(n >= 1, "Invalid n")
+  //  val str: Stream[Int] = 0 #:: 1 #:: str.zip(str.tail).map(x => x._1 + x._2)
+  //  str(n-1)
+  //}
+  // Stream solution works in 2.8
+  def fib3(n:Int): Int = {
+    def fibFrom(a: Int, b: Int): Stream[Int] = a #:: fibFrom(b, a + b)
+    fibFrom(0, 1)(n-1)
+  }
+
+  // Scan left stream solution, requires 2.11
+  //def fib4(n: Int): Int = {
+  //  require(n >= 1, "Invalid n")
+  //  val str: Stream[Int] = 0 #:: str.scanLeft(1)(_ + _)
+  //  str(n-1)
+  //}
 
   // This definition and `formatAbs` are very similar..
   private def formatFactorial(n: Int) = {
-    val msg = "The absolute value of %d is %d."
+    val msg = "The factorial of %d is %d."
     msg.format(n, factorial(n))
   }
 
@@ -139,13 +156,16 @@ object PolymorphicFunctions {
   // Exercise 2: Implement a polymorphic function to check whether
   // an `Array[A]` is sorted
   def isSorted[A](as: Array[A], gt: (A,A) => Boolean): Boolean = {
+    val len = as.length
     @annotation.tailrec
-    def inner(i: Int, prev: A, lenas: Int): Boolean = {
-      if (i == lenas) true // Reached the end
-      else if (gt(as(i), prev)) inner(i + 1, as(i), lenas)
+    def isSortedInner(idx: Int, prev: A): Boolean = {
+      if (idx == len) true
+      else if (gt(as(idx), prev)) isSortedInner(idx + 1, as(idx))
       else false
     }
-    inner(1, as(0), as.length)
+
+    if (len == 0) true // well, sorta defined
+    else isSortedInner(1, as(0))
   }
 
   // Polymorphic functions are often so constrained by their type
@@ -165,7 +185,7 @@ object PolymorphicFunctions {
 
   // Exercise 4: Implement `uncurry`
   def uncurry[A,B,C](f: A => B => C): (A, B) => C =
-    (a, b) => f(a)(b)
+    (a: A, b: B) => f(a)(b)
 
   /*
   NB: There is a method on the `Function` object in the standard library,
