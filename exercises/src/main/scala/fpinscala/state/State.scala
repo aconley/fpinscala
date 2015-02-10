@@ -151,9 +151,22 @@ object State {
         case Nil => (acc.toList, prevS)
         case st :: sts =>
           val (newV, newS) = st.run(prevS)
-          seqI(sts.tail, newS, acc += newV)
+          seqI(sts, newS, acc += newV)
       }
     State((s: S) => seqI(ss, s, ListBuffer[A]()))
+  }
+
+  // Only returns the last value
+  def chain[S, A](ss: List[State[S, A]]): State[S, A] = {
+    @annotation.tailrec
+    def chainI(gs: List[State[S, A]], prevS: S): (A, S) = gs match {
+      case Nil => sys.error("Can't run on Nil state")
+      case g :: Nil => g.run(prevS)
+      case st :: sts =>
+        val (newV, newS) = st.run(prevS)
+        chainI(sts, newS)
+    }
+    State((s: S) => chainI(ss, s))
   }
 }
 
@@ -165,7 +178,7 @@ case object Turn extends Input
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 
 object Candy {
-  import State.sequence
+  import State.chain
   def CoinState: State[Machine, (Int, Int)] =
     State(s => s match {
       case Machine(true, can, coin) if can > 0 => ((can, coin + 1), Machine(false, can, coin+1))
@@ -184,6 +197,6 @@ object Candy {
       case Coin => CoinState
       case Turn => KnobState
     }
-    sys.error("todo")
+    chain(inputs map stateMapper)
   }
 }
