@@ -28,10 +28,33 @@ object Par {
       def call = a(es).get
     })
 
+  def asyncF[A, B](f: A => B): A => Par[B] =
+    a => fork(unit(f(a)))
+
   def map[A,B](pa: Par[A])(f: A => B): Par[B] = 
     map2(pa, unit(()))((a,_) => f(a))
 
   def sortPar(parList: Par[List[Int]]) = map(parList)(_.sorted)
+
+  def sequence[A](l: List[Par[A]]): Par[List[A]] = {
+    val z: Par[List[A]] = unit(List())
+    def f(x: Par[A], xs: Par[List[A]]) = map2(x, xs)(_ :: _)
+    l.foldRight[Par[List[A]]](z)(f)
+  }
+
+  def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] = {
+    // We need a List[Par[A]] which we can then sequence
+    // But that doesn't allow us to hold Nil types
+    //  so instead we need a List[Par[List[A]] which we can then
+    // convert to a Par[List[List[A]] which we can flatten
+    // So we need a function A => Par[List[A]]
+    //  if we have A => List[A] we can use asyncF and map it
+    def makeList(a :A): List[A] = if (f(a)) List(a) else Nil
+    val parC = asyncF(makeList)
+    val p: List[Par[List[A]]] = as map parC
+    val s: Par[List[List[A]]] = sequence(p)
+    map(s)(_.flatten)
+  }
 
   def equal[A](e: ExecutorService)(p: Par[A], p2: Par[A]): Boolean = 
     p(e).get == p2(e).get
@@ -43,6 +66,29 @@ object Par {
     es => 
       if (run(es)(cond).get) t(es) // Notice we are blocking on the result of `cond`.
       else f(es)
+
+  def choiceN[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
+    es => {
+      val idx = run(es)(n).get
+      run(es)(choices(idx))
+    }
+
+  def flatMap[A, B](p: Par[A])(f: A => Par[B]): Par[B] =
+    es => {
+      val a = run(es)(p).get
+      run(es)(f(a))
+    }
+
+  def chooser[A, B](p: Par[A])(f: A => Par[B]): Par[B] = flatMap(p)(f)
+
+  def choiceViaMap[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+    flatMap(cond)(b => if (b) t else f)
+
+  def choiceNViaMap[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
+    flatMap(n)(i => choices(i))
+
+  def join[A](a: Par[Par[A]]): Par[A] =
+    es => run(es)(run(es)(a).get())  // Seems to need a () on get...
 
   /* Gives us infix syntax for `Par`. */
   implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
