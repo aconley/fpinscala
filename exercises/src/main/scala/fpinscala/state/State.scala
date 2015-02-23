@@ -47,6 +47,11 @@ object RNG {
     (v / (Int.MaxValue.toDouble + 1), r)
   }
 
+  def boolean(rng: RNG): (Boolean, RNG) = {
+    val (i, r) = nonNegativeInt(rng)
+    (i < 0, r)
+  }
+
   def intDouble(rng: RNG): ((Int, Double), RNG) = {
     val (i, r1) = rng.nextInt
     val (d, r2) = double(r1)
