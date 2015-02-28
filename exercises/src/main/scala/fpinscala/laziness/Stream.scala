@@ -110,6 +110,9 @@ trait Stream[+A] {
     unfold((this, s))(unf)
   }
 
+  def zip[B](s: Stream[B]): Stream[(A, B)] =
+    zipWith(s)((_,_))
+
   def zipAll[B](s: Stream[B]): Stream[(Option[A], Option[B])] = {
     def unf(ss: (Stream[A], Stream[B])): Option[((Option[A], Option[B]), (Stream[A], Stream[B]))] =
       (ss._1, ss._2) match {
