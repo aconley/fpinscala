@@ -32,6 +32,7 @@ object RNG {
       (f(a), rng2)
     }
 
+  // Note this is a Rand[Int]
   def nonNegativeInt(rng: RNG): (Int, RNG) = {
     // The issue here is that Int.MinValue is
     // smaller than - Int.MaxValue
@@ -92,6 +93,8 @@ object RNG {
     }
   }
 
+  // Take a list of random generators, produce a generator
+  //  of random Lists
   def sequence[A](fs: List[Rand[A]]): Rand[List[A]] = {
     // Obviously this can also be done with folds
     def seqInner(gs: List[Rand[A]], r: RNG, acc: ListBuffer[A]): (List[A], RNG) =

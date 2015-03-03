@@ -28,7 +28,7 @@ trait Stream[+A] {
     require(n >= 0, "Negative n in take")
     this match {
       case Cons(x, xs) if n > 1 => cons(x(), xs() take (n - 1))
-      case Cons(x, _) if n == 0 => cons(x(), empty)
+      case Cons(x, _) if n == 1 => cons(x(), empty)
       case Empty => empty
     }
   }
