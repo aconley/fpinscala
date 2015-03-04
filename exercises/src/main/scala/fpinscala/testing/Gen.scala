@@ -212,7 +212,7 @@ object testCases {
 
   val isSortedProp1 = forAll(listOf(smallInt)){ list: List[Int] =>
     def isOrdered(l: List[Int]): Boolean = {
-      !l.zip(l.tail).exists{ x => x._1 > x._ 2}
+      !l.zip(l.tail).exists{ x => x._1 > x._2}
     }
     val sorted_list = list.sorted
     // Either empty, has one element, or is in order

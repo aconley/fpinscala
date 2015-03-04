@@ -45,19 +45,20 @@ object MyModule {
     fibInner(n, 0 , 1)
   }
 
-  // Stream solution, requires 2.11
+  // Stream solution; bugged in 2.11.5
   //def fib2(n: Int): Int = {
   //  require(n >= 1, "Invalid n")
-  //  val str: Stream[Int] = 0 #:: 1 #:: str.zip(str.tail).map(x => x._1 + x._2)
-  //  str(n-1)
+  //  val strm: Stream[Int] = 0 #:: 1 #:: strm.zip(strm.tail).map{n => n._1 + n._2}
+  //  strm(n-1)
   //}
-  // Stream solution works in 2.8
-  def fib3(n:Int): Int = {
-    def fibFrom(a: Int, b: Int): Stream[Int] = a #:: fibFrom(b, a + b)
-    fibFrom(0, 1)(n-1)
-  }
 
-  // Scan left stream solution, requires 2.11
+  // Stream solution works in 2.8
+  //def fib3(n:Int): Int = {
+  //  def fibFrom(a: Int, b: Int): Stream[Int] = a #:: fibFrom(b, a + b)
+  //  fibFrom(0, 1)(n-1)
+  //}
+
+  // Scan left stream solution, bugged in 2.11.5
   //def fib4(n: Int): Int = {
   //  require(n >= 1, "Invalid n")
   //  val str: Stream[Int] = 0 #:: str.scanLeft(1)(_ + _)
@@ -117,18 +118,18 @@ object MonomorphicBinarySearch {
   // so long as we have some way of comparing elements of the `Array`
   def binarySearch(ds: Array[Double], key: Double): Int = {
     @annotation.tailrec
-    def go(low: Int, mid: Int, high: Int): Int = {
+    def bSearch(low: Int, mid: Int, high: Int): Int = {
       if (low > high) -mid - 1
       else {
         val mid2 = (low + high) / 2
         val d = ds(mid2) // We index into an array using the same
                          // syntax as function application
         if (d == key) mid2
-        else if (d > key) go(low, mid2, mid2-1)
-        else go(mid2 + 1, mid2, high)
+        else if (d > key) bSearch(low, mid2, mid2-1)  // It is very important to decrease the range by 1 (e.g., mid2-1)
+        else bSearch(mid2 + 1, mid2, high)
       }
     }
-    go(0, 0, ds.length - 1)
+    bSearch(0, 0, ds.length - 1)
   }
 
 }
@@ -167,6 +168,15 @@ object PolymorphicFunctions {
     if (len == 0) true // well, sorta defined
     else isSortedInner(1, as(0))
   }
+
+  // Here's a version for lists
+  @annotation.tailrec
+  def isSorted[A](l: List[A])(implicit ord: Ordering[A]): Boolean =
+    l match {
+      case Nil => true
+      case x :: Nil => true
+      case x1 :: xs => if (ord.gt(x1, xs.head)) false else isSorted(xs)(ord)
+    }
 
   // Polymorphic functions are often so constrained by their type
   // that they only have one implementation! Here's an example:
