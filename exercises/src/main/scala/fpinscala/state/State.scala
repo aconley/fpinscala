@@ -32,8 +32,7 @@ object RNG {
       (f(a), rng2)
     }
 
-  // Note this is a Rand[Int]
-  def nonNegativeInt(rng: RNG): (Int, RNG) = {
+  def nonNegativeInt: Rand[Int] = rng => {
     // The issue here is that Int.MinValue is
     // smaller than - Int.MaxValue
     // Also, if we mapped only 0 to zero it would
@@ -43,43 +42,44 @@ object RNG {
     if (v < 0) (-(v + 1), r) else (v, r)
   }
 
-  def double(rng: RNG): (Double, RNG) = {
+  // Generate positive double value
+  def double: Rand[Double] = rng => {
     val (v, r) = nonNegativeInt(rng)
     (v / (Int.MaxValue.toDouble + 1), r)
   }
 
-  def boolean(rng: RNG): (Boolean, RNG) = {
+  def boolean: Rand[Boolean] = rng => {
     val (i, r) = nonNegativeInt(rng)
     (i < 0, r)
   }
 
-  def intDouble(rng: RNG): ((Int, Double), RNG) = {
+  def intDouble: Rand[(Int, Double)] = rng => {
     val (i, r1) = rng.nextInt
     val (d, r2) = double(r1)
     ((i, d), r2)
   }
 
-  def doubleInt(rng: RNG): ((Double, Int), RNG) = {
+  def doubleInt: Rand[(Double, Int)] = rng => {
     val (i, r1) = rng.nextInt
     val (d, r2) = double(r1)
     ((d, i), r2)
   }
 
-  def double3(rng: RNG): ((Double, Double, Double), RNG) = {
+  def double3: Rand[(Double, Double, Double)] = rng => {
     val (d1, r1) = double(rng)
     val (d2, r2) = double(r1)
     val (d3, r3) = double(r2)
     ((d1, d2, d3), r3)
   }
 
-  def ints(count: Int)(rng: RNG): (List[Int], RNG) = {
+  def ints(count: Int): Rand[List[Int]] = {
     require(count >= 0, "count can't be negative")
     def intsInner(n: Int, r: RNG, xs: List[Int]): (List[Int], RNG) = n match {
       case 0 => (xs, r)
       case _ => val (x, newr) = r.nextInt
         intsInner(n - 1, newr, x :: xs)
     }
-    intsInner(count, rng, List())
+    rng: RNG => intsInner(count, rng, List())
   }
 
   def doubleRand: Rand[Double] =
@@ -93,10 +93,14 @@ object RNG {
     }
   }
 
+  def both[A, B](ra: Rand[A], rb: Rand[B]): Rand[(A, B)] =
+    map2(ra, rb)((_, _))
+
   // Take a list of random generators, produce a generator
   //  of random Lists
   def sequence[A](fs: List[Rand[A]]): Rand[List[A]] = {
     // Obviously this can also be done with folds
+    @annotation.tailrec
     def seqInner(gs: List[Rand[A]], r: RNG, acc: ListBuffer[A]): (List[A], RNG) =
       gs match {
         case Nil => (acc.toList, r)
@@ -116,6 +120,8 @@ object RNG {
       g(newval)(newr)
     }
 
+  // The idea here is to retry anything within n of the
+  // maximum integer value to avoid skew
   def nonNegativeLessThan(n: Int): Rand[Int] = {
     flatMap(nonNegativeInt) { i =>
       val mod = i % n

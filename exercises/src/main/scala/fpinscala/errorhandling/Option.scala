@@ -14,6 +14,7 @@ sealed trait Option[+A] {
     case Some(a) => a
   }
 
+  // The non-explicit pattern match version is map(f) getOrElse None
   def flatMap[B](f: A => Option[B]): Option[B] = this match {
     case None => None
     case Some(a) => f(a)
@@ -49,6 +50,7 @@ object Option {
   def mean(xs: Seq[Double]): Option[Double] =
     if (xs.isEmpty) None
     else Some(xs.sum / xs.length)
+
   def variance(xs: Seq[Double]): Option[Double] =
     mean(xs) flatMap (m => mean(xs.map(x => math.pow(x - m, 2))))
 

@@ -10,6 +10,12 @@ trait Monoid[A] {
 
 object Monoid {
 
+  // Flips the order on the operation
+  def dual[A](m: Monoid[A]): Monoid[A] = new Monoid[A] {
+    def op(a: A, b: A): A = m.op(b, a)
+    val zero = m.zero
+  }
+
   val stringMonoid = new Monoid[String] {
     def op(a1: String, a2: String) = a1 + a2
     val zero = ""
@@ -20,45 +26,82 @@ object Monoid {
     val zero = Nil
   }
 
-  val intAddition: Monoid[Int] = sys.error("todo")
+  val intAddition: Monoid[Int] = new Monoid[Int] {
+    def op(i: Int, j: Int) = i + j
+    val zero = 0
+  }
 
-  val intMultiplication: Monoid[Int] = sys.error("todo")
+  val intMultiplication: Monoid[Int] = new Monoid[Int] {
+    def op(i: Int, j: Int) = i * j
+    val zero = 1
+  }
 
-  val booleanOr: Monoid[Boolean] = sys.error("todo")
+  val booleanOr: Monoid[Boolean] = new Monoid[Boolean] {
+    def op(a: Boolean, b: Boolean) = a || b
+    val zero = false
+  }
 
-  val booleanAnd: Monoid[Boolean] = sys.error("todo")
+  val booleanAnd: Monoid[Boolean] = new Monoid[Boolean] {
+    def op(a: Boolean, b: Boolean) = a && b
+    val zero = true
+  }
 
-  def optionMonoid[A]: Monoid[Option[A]] = sys.error("todo")
+  def optionMonoid[A]: Monoid[Option[A]] = new Monoid[Option[A]] {
+    def op(o1: Option[A], o2: Option[A]): Option[A] = o1 orElse o2
+    def zero = None
+  }
 
-  def endoMonoid[A]: Monoid[A => A] = sys.error("todo")
-
-  // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
-  // data type from Part 2.
-  trait Prop {}
-
-  // TODO: Placeholder for `Gen`. Remove once you have implemented the `Gen`
-  // data type from Part 2.
+  def endoMonoid[A]: Monoid[A => A] = new Monoid[A => A] {
+    // Note that this could also be f andThen g
+    def op(f: A => A, g: A => A): A => A = f compose g
+    def zero = a => a
+  }
 
   import fpinscala.testing._
   import Prop._
-  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = sys.error("todo")
+
+  // Test associativity
+  def monoidLawsAssociative[A](m: Monoid[A], gen: Gen[A]): Prop = {
+    val tvals = for {
+      x <- gen
+      y <- gen
+      z <- gen
+    } yield (x, y, z)
+    def assoc(p: (A, A, A)): Boolean = p match {
+      case (x, y, z) => m.op(x, m.op(y, z)) == m.op(m.op(x, y), z)
+    }
+    forAll(tvals)(assoc)
+  }
+  def monoidLawsIdentity[A](m: Monoid[A], gen: Gen[A]): Prop =
+    forAll(gen)(a => (m.op(a, m.zero)) == a && m.op(m.zero, a) == a)
 
   def trimMonoid(s: String): Monoid[String] = sys.error("todo")
 
   def concatenate[A](as: List[A], m: Monoid[A]): A =
-    sys.error("todo")
+    as.foldLeft(m.zero)(m.op)
 
+  // Note this could be m.op(f(a), b) instead...
   def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B =
-    sys.error("todo")
+    as.foldLeft(m.zero)((b, a) => m.op(b, f(a)))
 
   def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
-    sys.error("todo")
+    foldMap(as, endoMonoid[B])(f.curried)(z)
 
   def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B): B =
-    sys.error("todo")
+    foldMap(as, dual(endoMonoid[B]))(a => b => f(b, a))(z)
 
+  // It would be better to have this cut off at some small size
+  // rather than recurse all the way down, but this is, after all,
+  // only for pedagogical purposes
   def foldMapV[A, B](as: IndexedSeq[A], m: Monoid[B])(f: A => B): B =
-    sys.error("todo")
+    if (as.length == 0)
+      m.zero
+    else if (as.length == 1)
+      f(as(0))
+    else {
+      val (left, right) = as.splitAt(as.length / 2)
+      m.op(foldMapV(left, m)(f), foldMapV(right, m)(f))
+    }
 
   def ordered(ints: IndexedSeq[Int]): Boolean =
     sys.error("todo")
@@ -73,7 +116,19 @@ object Monoid {
   def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] = 
     sys.error("todo") 
 
-  val wcMonoid: Monoid[WC] = sys.error("todo")
+  val wcMonoid: Monoid[WC] = new Monoid[WC] {
+    def op(a: WC, b: WC) = (a, b) match {
+      case (Stub(x), Stub(y)) => Stub(x + y)
+      case (Stub(x), Part(l, w, r)) => Part(x + l, w, r)
+      case (Part(l, w, r), Stub(x)) => Part(l, w, r + x)
+      case (Part(l1, w1, r1), Part(l2, w2, r2)) =>
+        if ((r1 + l2).isEmpty)
+          Part(l1, w1 + w2, r2)
+        else // New word formed from r1 and l2 joining
+          Part(l1, w1 + w2 + 1, r2)
+    }
+    val zero = Stub("")
+  }
 
   def count(s: String): Int = sys.error("todo")
 

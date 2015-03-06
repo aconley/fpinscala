@@ -111,6 +111,9 @@ object Prop {
         println(s"+ OK, proved property.")
     }
 
+  def check(p: => Boolean): Prop = Prop { (_, _, _) =>
+    if (p) Proved else Falsified("()", 0)
+  }
 }
 
 object Gen {
@@ -180,6 +183,8 @@ case class Gen[+A](sample: State[RNG, A]) {
   def listOfN(n: Int): Gen[List[A]] =
     Gen(State.sequence(List.fill(n)(this.sample)))
 
+  def **[B](g: Gen[B]): Gen[(A, B)] = (this map2 g)((_, _))
+
   // Utility function to convert to a SGen that ignores the size argument
   def unsized: SGen[A] = SGen[A](_ => this)
 }
@@ -218,6 +223,25 @@ object testCases {
     // Either empty, has one element, or is in order
     list.isEmpty || list.tail.isEmpty || isOrdered(list)
   }
+
+  // Par testing
+  val S = weighted(choose(1, 4).map(Executors.newFixedThreadPool) -> 0.75,
+    unit(Executors.newCachedThreadPool) -> 0.25)
+  def forAllPar[A](g: Gen[A])(f: A => Par[Boolean]): Prop =
+    forAll(S ** g){ case (s, a) => f(a)(s).get }
+  def equalPar[A](p1: Par[A], p2: Par[A]): Par[Boolean] =
+    Par.map2(p1, p2)(_ == _)
+  def checkPar(p: Par[Boolean]): Prop =
+    forAllPar(Gen.unit(()))(_ => p)
+
+  val parProp1 = checkPar {
+    equalPar(Par.map(Par.unit(1))(_ + 1), Par.unit(2))
+  }
+
+  private val pint = Gen.choose(0, 10) map (Par.unit(_))
+  val parPropId = forAllPar(pint)(n => equalPar(Par.map(n)(y => y), n))
+
+
 }
 
 
