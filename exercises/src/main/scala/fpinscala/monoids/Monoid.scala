@@ -1,5 +1,6 @@
 package fpinscala.monoids
 
+// Note we only use the Nonblocking versions
 import fpinscala.parallelism.Nonblocking._
 import fpinscala.parallelism.Nonblocking.Par.toParOps // infix syntax for `Par.map`, `Par.flatMap`, etc
 
@@ -103,18 +104,21 @@ object Monoid {
       m.op(foldMapV(left, m)(f), foldMapV(right, m)(f))
     }
 
+  // Lift a Monoid into the parallel context
+  def par[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
+    def op(a: Par[A], b: Par[A]) = a.map2(b)(m.op)
+    def zero = Par.unit(m.zero)
+  }
+
+  def parFoldMap[A, B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] =
+    Par.parMap(v)(f).flatMap(x => foldMapV(x, par(m))(y => Par.lazyUnit(y)))
+
   def ordered(ints: IndexedSeq[Int]): Boolean =
     sys.error("todo")
 
   sealed trait WC
   case class Stub(chars: String) extends WC
   case class Part(lStub: String, words: Int, rStub: String) extends WC
-
-  def par[A](m: Monoid[A]): Monoid[Par[A]] = 
-    sys.error("todo")
-
-  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] = 
-    sys.error("todo") 
 
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
     def op(a: WC, b: WC) = (a, b) match {
@@ -130,7 +134,25 @@ object Monoid {
     val zero = Stub("")
   }
 
-  def count(s: String): Int = sys.error("todo")
+  // Smart constructor for chars that skips whitespace
+  def wc(c: Char): WC =
+    if (c.isWhitespace)
+      Part("", 0, "")
+    else
+      Stub(c.toString)
+
+  // This is spectacularly inefficient
+  def count(s: String): Int = {
+    // At the end we will need to consider any remaining strings on the end
+    //  to be finished words
+    def finishWord(s: String): Int = if (s.isEmpty) 0 else 1
+    // Combine all the stubs
+    val w = foldMapV(s.toIndexedSeq, wcMonoid)(wc)
+    w match {
+      case Stub(x) => finishWord(x)
+      case Part(l, w, r) => finishWord(l) + w + finishWord(r)
+    }
+  }
 
   def productMonoid[A,B](A: Monoid[A], B: Monoid[B]): Monoid[(A, B)] =
     sys.error("todo")
@@ -155,38 +177,39 @@ trait Foldable[F[_]] {
     sys.error("todo")
 
   def foldMap[A, B](as: F[A])(f: A => B)(mb: Monoid[B]): B =
-    sys.error("todo")
+    foldRight(as)(mb.zero)((a, b) => mb.op(f(a), b))
 
   def concatenate[A](as: F[A])(m: Monoid[A]): A =
-    sys.error("todo")
+    foldLeft(as)(m.zero)(m.op)
 
   def toList[A](as: F[A]): List[A] =
-    sys.error("todo")
+    foldRight(as)(List[A]())(_ :: _)
 }
 
 object ListFoldable extends Foldable[List] {
   override def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B) =
-    sys.error("todo")
+    as.foldRight(z)(f)
   override def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B) =
-    sys.error("todo")
+    as.foldLeft(z)(f)
   override def foldMap[A, B](as: List[A])(f: A => B)(mb: Monoid[B]): B =
-    sys.error("todo")
+    foldLeft(as)(mb.zero)((b, a) => mb.op(b, f(a)))
 }
 
 object IndexedSeqFoldable extends Foldable[IndexedSeq] {
+  import Monoid._
   override def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B) =
-    sys.error("todo")
+    as.foldRight(z)(f)
   override def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B) =
-    sys.error("todo")
+    as.foldLeft(z)(f)
   override def foldMap[A, B](as: IndexedSeq[A])(f: A => B)(mb: Monoid[B]): B =
-    sys.error("todo")
+    foldMapV(as, mb)(f)
 }
 
 object StreamFoldable extends Foldable[Stream] {
   override def foldRight[A, B](as: Stream[A])(z: B)(f: (A, B) => B) =
-    sys.error("todo")
+    as.foldRight(z)(f)
   override def foldLeft[A, B](as: Stream[A])(z: B)(f: (B, A) => B) =
-    sys.error("todo")
+    as.foldLeft(z)(f)
 }
 
 sealed trait Tree[+A]
