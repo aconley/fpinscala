@@ -49,7 +49,7 @@ object Monoid {
 
   def optionMonoid[A]: Monoid[Option[A]] = new Monoid[Option[A]] {
     def op(o1: Option[A], o2: Option[A]): Option[A] = o1 orElse o2
-    def zero = None
+    val zero = None
   }
 
   def endoMonoid[A]: Monoid[A => A] = new Monoid[A => A] {
@@ -57,6 +57,26 @@ object Monoid {
     def op(f: A => A, g: A => A): A => A = f compose g
     def zero = a => a
   }
+
+  def productMonoid[A,B](A: Monoid[A], B: Monoid[B]): Monoid[(A, B)] =
+    new Monoid[(A, B)] {
+      def op(o1: (A, B), o2: (A, B)) = (A.op(o1._1, o2._1), B.op(o1._2, o2._2))
+      val zero = (A.zero, B.zero)
+    }
+
+  def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
+    new Monoid[A => B] {
+      def op(f: A => B, g: A => B) = a => B.op(f(a), g(a))
+      val zero: A => B = a => B.zero
+    }
+
+  def mapMergeMonoid[K,V](V: Monoid[V]): Monoid[Map[K, V]] =
+    new Monoid[Map[K, V]] {
+      def op(a: Map[K, V], b: Map[K, V]) =
+        (a.keySet ++ b.keySet).foldLeft(zero){ (acc, k) =>
+          acc.updated(k, V.op(a.getOrElse(k, V.zero), b.getOrElse(k, V.zero)))}
+      val zero = Map[K, V]()
+    }
 
   import fpinscala.testing._
   import Prop._
@@ -154,17 +174,8 @@ object Monoid {
     }
   }
 
-  def productMonoid[A,B](A: Monoid[A], B: Monoid[B]): Monoid[(A, B)] =
-    sys.error("todo")
-
-  def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
-    sys.error("todo")
-
-  def mapMergeMonoid[K,V](V: Monoid[V]): Monoid[Map[K, V]] =
-    sys.error("todo")
-
   def bag[A](as: IndexedSeq[A]): Map[A, Int] =
-    sys.error("todo")
+    foldMapV(as, mapMergeMonoid[A, Int](intAddition))((a: A) => Map(a -> 1))
 }
 
 trait Foldable[F[_]] {
@@ -183,7 +194,7 @@ trait Foldable[F[_]] {
     foldLeft(as)(m.zero)(m.op)
 
   def toList[A](as: F[A]): List[A] =
-    foldRight(as)(List[A]())(_ :: _)
+    foldRight(as)(List[A]())(_ :: _)  // Doesn't like Nil...
 }
 
 object ListFoldable extends Foldable[List] {
@@ -218,19 +229,37 @@ case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
 
 object TreeFoldable extends Foldable[Tree] {
   override def foldMap[A, B](as: Tree[A])(f: A => B)(mb: Monoid[B]): B =
-    sys.error("todo")
-  override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B) =
-    sys.error("todo")
-  override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B) =
-    sys.error("todo")
+    as match {
+      case Leaf(a) => f(a)
+      case Branch(l, r) => mb.op(foldMap(l)(f)(mb), foldMap(r)(f)(mb))
+    }
+  override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B =
+    as match {
+      case Leaf(a) => f(z, a)
+      case Branch(l, r) => foldLeft(l)(foldLeft(r)(z)(f))(f)
+    }
+  override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B): B =
+    as match {
+      case Leaf(a) => f(a, z)
+      case Branch(l, r) => foldRight(r)(foldRight(l)(z)(f))(f)
+    }
 }
 
 object OptionFoldable extends Foldable[Option] {
   override def foldMap[A, B](as: Option[A])(f: A => B)(mb: Monoid[B]): B =
-    sys.error("todo")
-  override def foldLeft[A, B](as: Option[A])(z: B)(f: (B, A) => B) =
-    sys.error("todo")
+    as match {
+      case None => mb.zero
+      case Some(a) => f(a)
+    }
+  override def foldLeft[A, B](as: Option[A])(z: B)(f: (B, A) => B): B =
+    as match {
+      case None => z  // Only value of B available...
+      case Some(a) => f(z, a)
+    }
   override def foldRight[A, B](as: Option[A])(z: B)(f: (A, B) => B) =
-    sys.error("todo")
+    as match {
+      case None => z
+      case Some(a) => f(a, z)
+    }
 }
 
